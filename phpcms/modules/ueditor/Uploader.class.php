@@ -105,13 +105,13 @@ class Uploader
             $this->stateInfo = $this->getStateInfo("ERROR_TYPE_NOT_ALLOWED");
             return;
         }
-        //配置文件定义上传方式
         $uploadConfig = pc_base::load_config('system', 'upload_type');
         if($uploadConfig){
-            //=====================
-            //上传到CDN，如七牛、OSS等
-            //=====================
-
+            //cdn上传
+            $ucuxinApi = pc_base::load_plugin_class('ucuxinApi', 'extend');
+            $re = $ucuxinApi::upload($file['tmp_name'], $file['type'], $this->fullName,1);
+            $this->fullName=$re['data']['Url'];
+            $this->stateInfo = $this->stateMap[0];
         }else{
             //创建目录失败
             if (!file_exists($dirname) && !mkdir($dirname, 0777, true)) {
@@ -125,6 +125,7 @@ class Uploader
             if (!(move_uploaded_file($file["tmp_name"], $this->filePath) && file_exists($this->filePath))) { //移动失败
                 $this->stateInfo = $this->getStateInfo("ERROR_FILE_MOVE");
             } else { //移动成功
+                $this->addWaterMark();//添加水印
                 $this->stateInfo = $this->stateMap[0];
                 $this->fullName=CONFIG_ROOT.$this->fullName;//返回url为绝对路径
             }
@@ -239,6 +240,7 @@ class Uploader
         if (!(file_put_contents($this->filePath, $img) && file_exists($this->filePath))) { //移动失败
             $this->stateInfo = $this->getStateInfo("ERROR_WRITE_CONTENT");
         } else { //移动成功
+            $this->addWaterMark();//添加水印
             $this->stateInfo = $this->stateMap[0];
         }
 
@@ -347,13 +349,6 @@ class Uploader
      */
     public function getFileInfo()
     {
-        $siteid=get_siteid();
-        $setting=string2array(getcache('sitelist','commons')[$siteid]['setting']);
-        //添加水印
-        if($setting['watermark_enable']){
-            $newfile = PHPCMS_PATH.$this->fullName;
-            watermark($newfile,'',$siteid);
-        }
         return array(
             "state" => $this->stateInfo,
             "url" => $this->fullName,
@@ -377,5 +372,19 @@ class Uploader
         $mime=curl_getinfo($ch, CURLINFO_CONTENT_TYPE);
         $mimeArray=explode('/',$mime);
         return $mimeArray[0] == 'image' ? $mimeArray[1] : false;
+    }
+
+    /**生成水印
+     * @param string $filePath 原图片路径
+     * @return bool|string|原图片路径|生成水印图片途径
+     */
+    private function addWaterMark($filePath='')
+    {
+        $siteid=get_siteid();
+        $setting=string2array(getcache('sitelist','commons')[$siteid]['setting']);
+        //添加水印
+        if(!$setting['watermark_enable']) return false;
+        $newfile = $filePath ? $filePath : PHPCMS_PATH.$this->fullName ;
+        return watermark($newfile,'',$siteid);
     }
 }
