@@ -148,7 +148,6 @@ class Uploader
         $this->filePath = $this->getFilePath();
         $this->fileName = $this->getFileName();
         $dirname = dirname($this->filePath);
-
         //检查文件大小是否超出限制
         if (!$this->checkSize()) {
             $this->stateInfo = $this->getStateInfo("ERROR_SIZE_EXCEED");
@@ -195,12 +194,16 @@ class Uploader
         }
         //格式验证(扩展名验证和Content-Type验证)
         $fileType = strtolower(strrchr($imgUrl, '.'));
-        if (!in_array($fileType, $this->config['allowFiles']) || stristr($heads['Content-Type'], "image")) {
-            if(!$this->suffix=$this->getMimeType($imgUrl)){
+        if (!in_array($fileType, $this->config['allowFiles'])) {
+            if(stristr($heads[3], "image")){
+                $this->suffix = explode('/',$heads[3])[1];
+            }else{
                 $this->stateInfo = $this->getStateInfo("ERROR_HTTP_CONTENTTYPE");
                 return;
             }
+
         }
+
         //打开输出缓冲区并获取远程图片
         ob_start();
         $context = stream_context_create(
@@ -357,21 +360,6 @@ class Uploader
             "type" => $this->fileType,
             "size" => $this->fileSize
         );
-    }
-
-    /**判断远程文件是否为图片
-     * @param $imgUrl 图片地址
-     * @return string 图片后缀
-     */
-    public function getMimeType($imgUrl)
-    {
-        //获取文件mime类型
-        $ch = curl_init($imgUrl);
-        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-        curl_exec($ch);
-        $mime=curl_getinfo($ch, CURLINFO_CONTENT_TYPE);
-        $mimeArray=explode('/',$mime);
-        return $mimeArray[0] == 'image' ? $mimeArray[1] : false;
     }
 
     /**生成水印
